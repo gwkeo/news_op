@@ -1,0 +1,7 @@
+selenium
+beautifulsoup4
+pandas
+numpy
+transformers
+tf-keras
+torch
