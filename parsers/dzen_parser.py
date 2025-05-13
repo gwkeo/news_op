@@ -8,7 +8,6 @@ def get_news(driver, url):
         soup = BeautifulSoup(content, features='html.parser')
         links = soup.select('[class^="desktop2--widget-news-desktop__mainNews"]')
         links.extend(soup.select('[class^="desktop2--card-top-avatar__rootElement"]'))
-        links.extend(soup.select('[class^="desktop2--card-horizontal-news__cardLink"]'))
         result = []
         for i in links:
             if i.get_attribute_list('href'):
@@ -41,3 +40,16 @@ def get_news_url_links(driver, url, set_of_urls):
         raise Exception("something went wrong")
 
 
+def get_article_item_content(driver, url):
+    driver.get(url)
+    content = driver.page_source
+
+    a = "document.querySelector('div[data-testid=\"article-comments\"]').scrollIntoView()"
+
+    driver.execute_script(a)
+    soup = BeautifulSoup(content, features='html.parser')
+    return soup.select('div[data-testid="article-comments"]')
+    # commentsDiv = soup.select('div[data-testid="article-comments"]).scrollIntoView()')[0]
+    # comments = commentsDiv.select('span')
+    # for i in comments:
+    #     print(i)
