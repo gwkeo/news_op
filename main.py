@@ -8,9 +8,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from transformers import pipeline
 
 model = pipeline(
-    "text-classification",
-    model="sismetanin/rubert-ru-sentiment-rusentiment",
-    tokenizer="sismetanin/rubert-ru-sentiment-rusentiment"
+    model="r1char9/rubert-base-cased-russian-sentiment",
 )
 
 
