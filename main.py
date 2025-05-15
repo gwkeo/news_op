@@ -1,4 +1,3 @@
-from time import sleep
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium import webdriver
@@ -6,10 +5,36 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from transformers import pipeline
+import enum
 
 model = pipeline(
     model="r1char9/rubert-base-cased-russian-sentiment",
 )
+
+class Tonality(enum.Enum):
+    positive = 1
+    neutral = 0
+    negative = -1
+
+
+class Comment:
+    tonality: Tonality
+    score: int
+
+    def __init__(self, tonality: Tonality, score: int):
+        self.tonality = tonality
+        self.score = score
+
+
+class Article:
+    url: str
+    title: str
+    mid_tonality: int
+
+    def __init__(self, url: str, title: str, mid_tonality: int):
+        self.url = url
+        self.title = title
+        self.mid_tonality = mid_tonality
 
 
 def get_news(driver, url):
@@ -45,9 +70,8 @@ def get_news_url_links(driver, url, set_of_urls):
     return set_of_urls
 
 
-def get_article_item_content(driver: webdriver.Chrome, url):
+def get_article_item_content(driver: webdriver.Chrome, url: str) -> Article:
     driver.get(url)
-    content = driver.page_source
     driver.maximize_window()
 
     action = ActionChains(driver)
@@ -59,29 +83,42 @@ def get_article_item_content(driver: webdriver.Chrome, url):
     action.click()
     action.perform()
 
-    try:
-        WebDriverWait(driver, 5).until(
-            EC.presence_of_all_elements_located((By.XPATH, '//div[contains(@class, "comments2--root-comment__childrenContainer")]'))
-        )
-    except:
-        print(f"{url} wasn't parsed. Timeout")
-        return
+    WebDriverWait(driver, 5).until(
+        EC.presence_of_all_elements_located((By.XPATH, '//div[contains(@class, "comments2--root-comment__childrenContainer")]'))
+    )
     comments = driver.find_elements(By.XPATH, '//span[contains(@class, "comments2--rich-text__text")]')
     comments = [i.text for i in comments]
-    return comments
+
+    mid_tonality = find_mid_tonality(comments)
+
+    header = driver.find_element(By.XPATH, '//h1[@data-testid="article-title"]')
 
 
-    # commentsDiv = soup.select('div[data-testid="article-comments"]).scrollIntoView()')[0]
-    # comments = commentsDiv.select('span')
-    # for i in comments:
-    #     print(i)
+    return Article(url, header, mid_tonality)
 
+
+def check_tonality(sentence) -> Comment:
+    tonality = model(sentence)[0]
+    t, s = Tonality.neutral
+    if tonality.label == 'negative':
+        t = Tonality.negative
+    elif tonality.label == 'positive':
+        t = Tonality.positive
+    s = tonality.score
+    return Comment(t, s)
+
+def find_mid_tonality(sentences: list[str]):
+    mid = 0
+    for i in sentences:
+        comment = check_tonality(i)
+        mid += comment.tonality * comment.score
+    return mid
 
 def init_driver():
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless=new')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--no-sandbox')
+    # options.add_argument('--headless=new')
+    # options.add_argument('--disable-gpu')
+    # options.add_argument('--no-sandbox')
 
     driver = webdriver.Chrome(options=options)
     driver.implicitly_wait(5)
@@ -102,12 +139,10 @@ if __name__ == "__main__":
     for i in news:
         links = get_news_url_links(driver, i, links)
     
-    for i in links:
-        comments = get_article_item_content(driver, i)
-        if comments:
-            for i in comments:
-                if i:
-                    print(i, model(i))
+    articles = []
 
-    print(links)
-    print(len(links))
+    for i in links:
+        articles.append(get_article_item_content(driver, i))
+
+    print(articles)
+    print(len(articles))
